@@ -45,28 +45,92 @@ select format(@processed_time, 'mm:ss.fff') as '処理時間'
 --delete from dbo.customer
 
 --# ▼ 再帰クエリ
---100万件 ⇒ 11秒くらい。
-DECLARE @insert_count Bigint 
-SELECT @insert_count = 1000000; 
-WITH Base AS
+--# ▽ 再帰クエリでn分レコードがあるテーブルを作成する。
+--# ▽ withで使い回せるようにする。
+
+--100万件	⇒ 1秒
+--1000万件	⇒ 16秒
+declare @insert_count int 
+set @insert_count = 1000000; 
+with kari as
   (
-    SELECT 1 AS n
-    UNION ALL
-    SELECT n+1 FROM Base WHERE n < @insert_count
-  ),
-  Nums AS
-  (
-    SELECT Row_Number() OVER(ORDER BY n) AS n FROM Base
+    select 1 as n
+    union all
+    select n+1 from kari where n < @insert_count
   )
-  
-  INSERT INTO customer 
-  　SELECT SYSDATETIME ()
+  insert into customer 
+  　select SYSDATETIME ()
            ,SYSDATETIME ()
            ,1
            ,1
            ,'customer.taro'
            ,'customer.taro'
            ,'29'
-   　FROM Nums  WHERE n <= @insert_count
+	from kari where n <= @insert_count
+
+option (MaxRecursion 0); 
+
+--# ▲ 再帰クエリ
+print(row_number() over 1)
+--# ▼ 再帰クエリ(2)
+-- ※再帰上限を変更しても処理できない。
+declare @insert_count bigint 
+set @insert_count = 100000; 
+
+WITH Base AS
+  (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n+1 FROM Base WHERE n < CEILING(SQRT(@insert_count))
+  ),
+  Expand AS
+  (
+    SELECT 1 AS C FROM Base AS B1, Base AS B2
+  ),
+  Nums AS
+  (
+    SELECT Row_Number() OVER(ORDER BY C) AS n FROM Expand
+  )
+  select * from Base
+  insert into customer 
+  　select SYSDATETIME ()
+           ,SYSDATETIME ()
+           ,1
+           ,1
+           ,'customer.taro'
+           ,'customer.taro'
+           ,'29'
+	from Base where n <= @insert_count
 
 OPTION (MaxRecursion 0); 
+--# ▲ 再帰クエリ(2)
+
+
+declare @insert_count int 
+set @insert_count = 100000000; 
+WITH Base AS
+  (
+    SELECT 1 AS n
+    UNION ALL
+    SELECT n+1 FROM Base WHERE n < CEILING(SQRT(@insert_count))
+  ),
+  Expand AS
+  (
+    SELECT 1 AS C FROM Base AS B1, Base AS B2
+  ),
+  Nums AS
+  (
+    SELECT Row_Number() OVER(ORDER BY C) AS n FROM Expand
+  )
+  select * from Base
+ -- insert into customer 
+ -- 　select SYSDATETIME ()
+ --          ,SYSDATETIME ()
+ --          ,1
+ --          ,1
+ --          ,'customer.taro'
+ --          ,'customer.taro'
+ --          ,'29'
+	--from Base where n <= @insert_count
+
+OPTION (MaxRecursion 30000); 
